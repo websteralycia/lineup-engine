@@ -1,0 +1,173 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  Cell, ReferenceLine, LabelList 
+} from 'recharts';
+
+const App = () => {
+  // Input data from the R script results
+  const results = {
+    lineup: ["Breanna Stewart (F)", "Sabrina Ionescu (G)", "Jonquel Jones (C)", "Leonie Fiebich (F)", "Natasha Cloud (G)"],
+    projection: -4.52,
+    totalUsage: 108.28,
+    stats: {
+      efg: 0.5135765,
+      tov: 0.1413971,
+      oreb: 0.03498126,
+      ftr: 0.3048046
+    }
+  };
+
+  // Coefficients from the R script
+  const weights = {
+    intercept: -72.88772,
+    efg: 144.50778,
+    tov: -93.57270,
+    oreb: 47.19972,
+    ftr: 18.79830
+  };
+
+  // Calculate the individual contribution of each factor to the final Net Rating
+  const chartData = useMemo(() => {
+    const efgCont = results.stats.efg * weights.efg;
+    const tovCont = results.stats.tov * weights.tov;
+    const orebCont = results.stats.oreb * weights.oreb;
+    const ftrCont = results.stats.ftr * weights.ftr;
+
+    return [
+      { name: 'Base (Intercept)', value: weights.intercept, color: '#64748b' },
+      { name: 'Shooting (eFG%)', value: efgCont, color: efgCont > 0 ? '#10b981' : '#ef4444' },
+      { name: 'Ball Security (TOV%)', value: tovCont, color: tovCont > 0 ? '#10b981' : '#ef4444' },
+      { name: 'Rebounding (ORB%)', value: orebCont, color: orebCont > 0 ? '#10b981' : '#ef4444' },
+      { name: 'Free Throws (FTR)', value: ftrCont, color: ftrCont > 0 ? '#10b981' : '#ef4444' },
+    ];
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 font-sans">
+      <div className="max-w-5xl mx-auto space-y-6">
+        
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-end border-b border-slate-800 pb-6 gap-4">
+          <div>
+            <h1 className="text-3xl font-black italic tracking-tighter text-white">LINEUP PROJECTION ENGINE</h1>
+            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-1">Regression-Based Performance Modeling</p>
+          </div>
+          <div className="text-right">
+            <div className="text-xs font-black text-slate-500 uppercase">Projected Net Rating</div>
+            <div className={`text-5xl font-black ${results.projection >= 0 ? 'text-green-400' : 'text-red-500'}`}>
+              {results.projection > 0 ? `+${results.projection}` : results.projection}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Active Lineup & Usage Card */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+              <h3 className="text-xs font-black text-slate-400 uppercase mb-4 flex items-center gap-2">
+                <span className="w-2 h-2 bg-orange-500 rounded-full"></span> Active Five
+              </h3>
+              <div className="space-y-2">
+                {results.lineup.map((player, i) => (
+                  <div key={i} className="p-3 bg-slate-800/50 rounded-lg border border-slate-700/50 text-sm font-bold">
+                    {player}
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-6 pt-6 border-t border-slate-800">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs font-bold text-slate-500 uppercase">Usage Aggregation</span>
+                  <span className="text-xs font-black text-orange-400">{results.totalUsage}%</span>
+                </div>
+                <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-orange-500 transition-all" 
+                    style={{ width: `${Math.min(results.totalUsage, 100)}%` }}
+                  ></div>
+                </div>
+                <p className="text-[10px] text-slate-500 mt-2 leading-tight italic">
+                  *Model automatically normalized usage to 100% per your regression weights.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Regression Factor Contribution Chart */}
+          <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+            <h3 className="text-xs font-black text-slate-400 uppercase mb-6">Impact Analysis: How Stats Build the Score</h3>
+            
+            <div className="h-[350px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}}
+                  />
+                  <YAxis hide domain={[-80, 80]} />
+                  <Tooltip 
+                    cursor={{fill: '#1e293b'}}
+                    contentStyle={{backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px'}}
+                  />
+                  <ReferenceLine y={0} stroke="#475569" />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                    <LabelList 
+                      dataKey="value" 
+                      position="top" 
+                      formatter={(val) => val.toFixed(1)} 
+                      style={{fill: '#f8fafc', fontSize: 12, fontWeight: 900}} 
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-center">
+                <div className="text-[10px] text-slate-500 font-bold uppercase">eFG%</div>
+                <div className="text-lg font-black text-white">{(results.stats.efg * 100).toFixed(1)}%</div>
+              </div>
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-center">
+                <div className="text-[10px] text-slate-500 font-bold uppercase">TOV%</div>
+                <div className="text-lg font-black text-white">{(results.stats.tov * 100).toFixed(1)}%</div>
+              </div>
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-center">
+                <div className="text-[10px] text-slate-500 font-bold uppercase">ORB%</div>
+                <div className="text-lg font-black text-white">{(results.stats.oreb * 100).toFixed(1)}%</div>
+              </div>
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 text-center">
+                <div className="text-[10px] text-slate-500 font-bold uppercase">FTR</div>
+                <div className="text-lg font-black text-white">{results.stats.ftr.toFixed(3)}</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Tactical Recommendation */}
+        <div className="bg-blue-600/10 border border-blue-500/30 p-6 rounded-2xl flex items-start gap-4">
+          <div className="p-2 bg-blue-500 rounded-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-white"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </div>
+          <div>
+            <h4 className="text-blue-400 font-black text-sm uppercase tracking-wider">Coach's Insight: Efficiency Trap</h4>
+            <p className="text-slate-300 text-sm mt-1 leading-relaxed">
+              Your lineup's <span className="text-white font-bold">Shooting (eFG%)</span> is providing a huge boost (+74.2), but the <span className="text-red-400 font-bold">Turnover Rate</span> and the heavy <span className="text-slate-400 font-bold">Negative Intercept</span> are dragging the net results into the red. To flip this lineup to positive, you need to swap one player for a "Ball Secure" specialist who lowers that TOV% impact.
+            </p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default App;
